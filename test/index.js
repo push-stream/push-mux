@@ -1,64 +1,40 @@
-var Source = require('../source')
-var Sink = require('../sink')
-
+var Mux = require('../')
+var Async = require('push-stream/async')
 var test = require('tape')
 
-test('simple source->sub-sinks', function (t) {
+function log (name) {
+  return new Async(function (data, cb) {
+    console.log(name, data)
+    cb(null, data)
+  })
+}
 
-  var source = new Source()
-  var sink = {
-    output: [],
-    paused: false,
-    write: function (d) {
-      this.output.push(d)
-    },
-    end: function () {
-      this.ended = err || true
+test('request', function (t) {
+
+  var value = Math.random()
+  var a = new Mux()
+  var b = new Mux({
+    onRequest: function (_value, cb) {
+      console.log('onRequest', _value, cb)
+      t.equal(_value, value)
+      cb(null, value*value)
     }
-  }
-  source.pipe(sink)
+  })
 
-  var sub1 = source.createStream()
+  a
+    //.pipe(log('ab'))
+    .pipe(b)
+    //.pipe(log('ba'))
+    .pipe(a)
+//    .resume()
 
-  sub1.write('hello')
+  a.request(value, function (err, _value) {
+    t.equal(_value, value*value)
+    t.end()
+  })
 
-  t.deepEqual(sink.output, [{req: 1, stream: true, value: 'hello'}])
-
-  sub1.end()
-
-  t.deepEqual(sink.output, [{req: 1, stream: true, value: 'hello'}, {req: 1, stream: true, end: true}])
-
-
-  t.end()
-
+  console.log(a)
 })
 
-test('simple sub-sources->sink', function (t) {
 
-  var sink = new Sink()
-  var source1 = sink.createStream()
-
-  sink.write({req:1, stream: true, value: 'hello'})
-
-  t.deepEqual(source1.buffer, ['hello'])
-  t.end()
-
-})
-
-test('new stream sub-sources->sink', function (t) {
-
-  var sink = new Sink()
-//  var source1 = sink.createStream()
-
-  var source1
-  sink.onStream = function (_source1) {
-    console.log('received', _source1)
-    source1 = _source1
-  }
-
-  sink.write({req:-1, stream: true, value: 'hello'})
-  t.deepEqual(source1.buffer, ['hello'])
-  t.end()
-
-})
 
