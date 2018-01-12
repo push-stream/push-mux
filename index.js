@@ -1,6 +1,8 @@
 var inherits = require('inherits')
 var Sub = require('./sub')
-var Stream = require('stream')
+var Stream = require('./stream')
+
+module.exports = Mux
 
 inherits(Mux, Stream)
 
@@ -8,7 +10,9 @@ function Mux (opts) {
   this.cbs = {}
   this.subs = {}
   this.nextId = 0
+  this.options = opts || {}
   Stream.call(this)
+  this.paused = false
 }
 
 Mux.prototype.stream = function (opts) {
@@ -29,18 +33,43 @@ Mux.prototype.message = function (value) {
   this._write({req: 0, stream: false, end: false, value: value})
 }
 
+function writeDataToStream(data, sub) {
+  if(data.end === true) sub._end(data.value)
+  else         sub._write(data.value)
+}
+
+Mux.prototype._createCb = function (id) {
+  return this.cbs[-id] = function (err, value) {
+    this._write({
+      req: -id,
+      stream: false,
+      end: !!err,
+      value: err ? flatten(err) : value
+    })
+  }.bind(this)
+}
+
 Mux.prototype.write = function (data) {
   if(data.req == 0)
     this.options.onMessage && this.options.onMessage(data)
+  else if(!data.stream) {
+    console.log('req', data)
+    if(data.req > 0 && this.options.onRequest)
+      this.options.onRequest(data.value, this._createCb(data.req))
+    else if(data.req < 0 && this.cbs[-data.req]) {
+      var cb = this.cbs[-data.req]
+      this.cbs[-data.req] = null
+      cb(data.end ? data.value : null, data.end ? null : data.value)
+    }
+  }
   else if(data.stream) {
     var sub = this.subs[data.req] //TODO: handle +/- subs
-    if(sub) {
-      if(data.end === true) sub._end(data.value)
-      else         sub._write(data.value)
-    }
+    if(sub) writeDataToStream(data, sub)
     //we received a new stream!
-    else if (data.req > 0) {
-
+    else if (data.req > 0 && this.options.onStream) {
+      var sub = this.subs[-data.req] = new Sub(this, -data.req)
+      this.options.onStream(sub)
+      writeDataToStream(data, sub)
     }
     //else, we received a reply to a stream we didn't make,
     //which should never happen!
@@ -62,4 +91,5 @@ Mux.prototype.end = function (err) {
   //end the next piped to stream with the written error
   this._end(err)
 }
+
 
