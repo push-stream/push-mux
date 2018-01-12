@@ -1,4 +1,6 @@
 
+module.exports = Stream
+
 function Stream () {
   this.paused = true
   this.buffer = []
@@ -20,7 +22,12 @@ Stream.prototype.end = function (err) {
 Stream.prototype._write = function (data) {
   if(this.sink && !this.sink.paused) {
     this.sink.write(data)
-    this.paused = this.sink.paused
+    //for duplex streams, should it pause like this?
+    //i'm thinking no, because input does not necessarily
+    //translate into output, so output can pause, without causing
+    //input to pause.
+
+    // this.paused = this.sink.paused
   }
   else {
     this.buffer.push(data)
@@ -47,14 +54,19 @@ Stream.prototype._end = function (end) {
 
 Stream.prototype.resume = function () {
   if(isError(this.ended))
-    this.sink.end(this.ended)
+    return this.sink.end(this.ended)
 
   while(this.buffer.length && !this.sink.paused)
     this.sink.write(this.buffer.shift())
 
   if(this.ended && this.buffer.length == 0 && !this.sink.paused)
     this.sink.end(this.ended)
+
+  if(this.source)
+    this.source.resume()
 }
 
 Stream.prototype.pipe = require('push-stream/pipe')
+
+
 
