@@ -1,58 +1,65 @@
+var inherits = require('inherits')
+var Sub = require('./sub')
+var Stream = require('stream')
 
-
-//create a pair of source/sink
-//with api for calling and being called.
-var Sink = require('./sink')
-var Source = require('./source')
-
-module.exports = Mux
+inherits(Mux, Stream)
 
 function Mux (opts) {
-  this.onRequest = opts && opts.onRequest
-  //should on stream handle source, sink, duplex separately?
-  this.onStream = opts && opts.onStream
-  this.source = new Source()
+  this.cbs = {}
+  this.subs = {}
+  this.nextId = 0
+  Stream.call(this)
+}
 
-  this._nextCb = 0
-  this._cbs = {}
+Mux.prototype.stream = function (opts) {
+  var id = ++this.nextId
+  var sub = new Sub(this, id)
+  this._write({req: id, value: opts, stream: true})
+  return sub
+}
 
-  this.sink = new Sink()
+Mux.prototype.request = function (opts, cb) {
+  var id = ++this.nextId
+  this.cbs[id] = cb
+  this._write({req: id, value: opts, stream: false})
+  return id
+}
 
-  var self = this
-  //closure: memory problems.
-  this.sink.onRequest = function (data) {
-    console.log('on Req', data)
-    if(data.req < 0) {
-      var cb = self._cbs[data.req*-1]
-      delete self._cbs[data.req*-1]
-      if(!cb) return
-      if(data.end) cb(data.value)
-      else cb(null, data.value)
+Mux.prototype.message = function (value) {
+  this._write({req: 0, stream: false, end: false, value: value})
+}
+
+Mux.prototype.write = function (data) {
+  if(data.req == 0)
+    this.options.onMessage && this.options.onMessage(data)
+  else if(data.stream) {
+    var sub = this.subs[data.req] //TODO: handle +/- subs
+    if(sub) {
+      if(data.end === true) sub._end(data.value)
+      else         sub._write(data.value)
     }
-    else if(data.req > 0) { //a request from remote
-      self.onRequest(data.value, function (err, value) {
-        //this will hold a reference to `data` which isn't
-        //necessary. rewrite to only reference the number!
-        self.source._write({
-          req: -data.req,
-          value: err ? flatten(err) : value,
-          stream: false
-        })
-      })
+    //we received a new stream!
+    else if (data.req > 0) {
+
     }
+    //else, we received a reply to a stream we didn't make,
+    //which should never happen!
   }
 }
 
-Mux.prototype.request = function (value, cb) {
-  var req = ++this._nextCb
-  this._cbs[req] = cb
-  this.source._write({
-    req: req, value: value, stream: false
-  })
+Mux.prototype.end = function (err) {
+  var _err = err || new Error('parent stream closed') 
+  for(var i in this.cbs) {
+    var cb = this.cbs[i]
+    delete this.cbs[i]
+    cb(_err)
+  }
+  for(var i in this.subs) {
+    var sub = this.subs[i]
+    delete this.subs[i]
+    sub._end(_err)
+  }
+  //end the next piped to stream with the written error
+  this._end(err)
 }
-
-Mux.prototype.pipe = function (sink) {
-  return this.source.pipe(sink.sink), sink
-}
-
 
