@@ -1,4 +1,8 @@
 
+function isError (end) {
+  return end && end !== true
+}
+
 module.exports = Stream
 
 function Stream () {
@@ -34,10 +38,6 @@ Stream.prototype._write = function (data) {
   }
 }
 
-function isError (end) {
-  return end && end !== true
-}
-
 Stream.prototype._end = function (end) {
   this.ended = end || true
   if(this.sink) {
@@ -53,6 +53,8 @@ Stream.prototype._end = function (end) {
 }
 
 Stream.prototype.resume = function () {
+  if(!(this.paused || this.buffer.length)) return
+  this.paused = false
   if(isError(this.ended))
     return this.sink.end(this.ended)
 
@@ -67,6 +69,4 @@ Stream.prototype.resume = function () {
 }
 
 Stream.prototype.pipe = require('push-stream/pipe')
-
-
 
