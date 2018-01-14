@@ -46,7 +46,7 @@ test('backpressure', function (t) {
   var b = new Mux ({
     onStream: function (stream, type) {
       streams ++
-      console.log('onStream', type)
+      console.log('onStream', type, streams)
       return types[type](stream)
     }
   })
@@ -73,9 +73,11 @@ test('backpressure', function (t) {
 
   t.equal(s.paused, true)
   dpx.write('echo?')
+  t.equal(dpx.paused, true)
   t.deepEqual(dpx.buffer, [])
   s.resume() //let one data item through...
   t.deepEqual(dpx.buffer, ['echo?'])
+
   t.end()
 })
 
