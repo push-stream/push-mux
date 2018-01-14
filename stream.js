@@ -3,9 +3,9 @@ function isError (end) {
   return end && end !== true
 }
 
-module.exports = Stream
+module.exports = DuplexStream
 
-function Stream () {
+function DuplexStream () {
   this.paused = true
   this.buffer = []
 }
@@ -14,16 +14,16 @@ function Stream () {
 //bet they could be shifted into push-stream module
 
 // subclasses should overwrite this method
-Stream.prototype.write = function (data) {
-  this._write(data)
+DuplexStream.prototype.write = function (data) {
+  throw new Error('subclasses should overwrite Stream.write')
 }
 
 // subclasses should overwrite this method
-Stream.prototype.end = function (err) {
-  this._end(err)
+DuplexStream.prototype.end = function (err) {
+  throw new Error('subclasses should overwrite Stream.end')
 }
 
-Stream.prototype._write = function (data) {
+DuplexStream.prototype._write = function (data) {
   if(this.sink && !this.sink.paused) {
     this.sink.write(data)
     //for duplex streams, should it pause like this?
@@ -38,7 +38,7 @@ Stream.prototype._write = function (data) {
   }
 }
 
-Stream.prototype._end = function (end) {
+DuplexStream.prototype._end = function (end) {
   this.ended = end || true
   if(this.sink) {
     //if err is an Error, push the err,
@@ -52,9 +52,9 @@ Stream.prototype._end = function (end) {
   }
 }
 
-Stream.prototype.resume = function () {
-  if(!(this.paused || this.buffer.length)) return
-  this.paused = false
+DuplexStream.prototype.resume = function () {
+  if(!(/*this.paused || */this.buffer.length)) return
+//  this.paused = false
   if(isError(this.ended))
     return this.sink.end(this.ended)
 
@@ -63,10 +63,8 @@ Stream.prototype.resume = function () {
 
   if(this.ended && this.buffer.length == 0 && !this.sink.paused)
     this.sink.end(this.ended)
-
-  if(this.source)
-    this.source.resume()
 }
 
-Stream.prototype.pipe = require('push-stream/pipe')
+DuplexStream.prototype.pipe = require('push-stream/pipe')
+
 
