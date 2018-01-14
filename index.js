@@ -2,6 +2,10 @@ var inherits = require('inherits')
 var Sub = require('./sub')
 var Stream = require('./stream')
 
+function isError (end) {
+  return end && end !== true
+}
+
 module.exports = Mux
 
 inherits(Mux, Stream)
@@ -18,7 +22,8 @@ function Mux (opts) {
 Mux.prototype.stream = function (opts) {
   var id = ++this.nextId
   var sub = new Sub(this, id)
-  this._write({req: id, value: opts, stream: true})
+  this.subs[id] = sub
+  this._write({req: id, value: opts, stream: true, end: false})
   return sub
 }
 
@@ -53,7 +58,6 @@ Mux.prototype.write = function (data) {
   if(data.req == 0)
     this.options.onMessage && this.options.onMessage(data)
   else if(!data.stream) {
-    console.log('req', data)
     if(data.req > 0 && this.options.onRequest)
       this.options.onRequest(data.value, this._createCb(data.req))
     else if(data.req < 0 && this.cbs[-data.req]) {
@@ -63,14 +67,17 @@ Mux.prototype.write = function (data) {
     }
   }
   else if(data.stream) {
-    var sub = this.subs[data.req] //TODO: handle +/- subs
+    console.log('write', data, Object.keys(this.subs), this.nextId)
+    var sub = this.subs[-data.req] //TODO: handle +/- subs
     if(sub) writeDataToStream(data, sub)
     //we received a new stream!
     else if (data.req > 0 && this.options.onStream) {
       var sub = this.subs[-data.req] = new Sub(this, -data.req)
-      this.options.onStream(sub)
-      writeDataToStream(data, sub)
+      console.log('new-stream', -data.req)
+      this.options.onStream(sub, data.value)
     }
+    else
+      console.error('ignore:', data)
     //else, we received a reply to a stream we didn't make,
     //which should never happen!
   }
@@ -92,4 +99,26 @@ Mux.prototype.end = function (err) {
   this._end(err)
 }
 
+Mux.prototype.resume = function () {
+  //since this is a duplex
+  //this code taken from ./stream#resume
+  if(this.buffer.length || this.ended) {
+    if(isError(this.ended))
+      return this.sink.end(this.ended)
+
+    while(this.buffer.length && !this.sink.paused)
+      this.sink.write(this.buffer.shift())
+
+    if(this.ended && this.buffer.length == 0 && !this.sink.paused)
+      return this.sink.end(this.ended)
+
+  }
+  //in ./stream it called source.resume() here,
+  //but this is not a transform stream.
+  for(var i in this.subs) {
+    if(this.sink.paused) return
+    var sub = this.subs[i]
+    if(sub.paused) sub.resume()
+  }
+}
 
