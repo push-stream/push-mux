@@ -1,5 +1,5 @@
 var inherits = require('inherits')
-var Stream = require('./stream')
+var DuplexStream = require('./stream')
 
 function isError (end) {
   return end && end !== true
@@ -7,12 +7,12 @@ function isError (end) {
 
 module.exports = Sub
 
-inherits(Sub, Stream)
+inherits(Sub, DuplexStream)
 
 function Sub (parent, id) {
   this.parent = parent
   this.id = id
-  Stream.call(this)
+  DuplexStream.call(this)
   this.paused = false
 }
 

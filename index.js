@@ -1,6 +1,6 @@
 var inherits = require('inherits')
 var Sub = require('./sub')
-var Stream = require('./stream')
+var DuplexStream = require('./stream')
 
 function isError (end) {
   return end && end !== true
@@ -8,14 +8,14 @@ function isError (end) {
 
 module.exports = Mux
 
-inherits(Mux, Stream)
+inherits(Mux, DuplexStream)
 
 function Mux (opts) {
   this.cbs = {}
   this.subs = {}
   this.nextId = 0
   this.options = opts || {}
-  Stream.call(this)
+  DuplexStream.call(this)
   this.paused = false
 }
 
