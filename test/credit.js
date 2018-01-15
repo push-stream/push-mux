@@ -28,7 +28,7 @@ test('take 10 out of 100 items, then pause', function (t) {
   as
     .pipe(new Async(function (data, cb) {
       setTimeout(function () {
-        t.ok(as.buffer.length <= 10)
+        t.ok(as.buffer.length <= 10, 'buffer length should be under 10, was:'+as.buffer.length)
         cb(null, data)
       }, 50)
     }))
@@ -42,8 +42,6 @@ test('take 10 out of 100 items, then pause', function (t) {
     write: function (data) {
       output.push(data)
       console.log('received', data, output.length)
-//      if(output.length >= 10)
-//        this.paused = true
     },
     end: function () {
       console.log(output)
@@ -56,11 +54,5 @@ test('take 10 out of 100 items, then pause', function (t) {
   console.log(output, as.buffer)
 
 })
-
-
-
-
-
-
 
 
