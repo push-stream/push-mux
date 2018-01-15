@@ -17,6 +17,11 @@ function Mux (opts) {
   this.options = opts || {}
   DuplexStream.call(this)
   this.paused = false
+
+  //TODO: ensure this is something that current muxrpc would ignore
+  this.control = this.stream('control')
+  //this.hasFlowControl = false
+  //this._write({req: 1, stream: true, value: 'control', end: false})
 }
 
 Mux.prototype.stream = function (opts) {
@@ -66,20 +71,41 @@ Mux.prototype.write = function (data) {
       cb(data.end ? data.value : null, data.end ? null : data.value)
     }
   }
-  else if(data.stream) {
-    console.log('write', data, Object.keys(this.subs), this.nextId)
-    var sub = this.subs[-data.req] //TODO: handle +/- subs
-    if(sub) writeDataToStream(data, sub)
-    //we received a new stream!
-    else if (data.req > 0 && this.options.onStream) {
-      var sub = this.subs[-data.req] = new Sub(this, -data.req)
-      console.log('new-stream', -data.req)
-      this.options.onStream(sub, data.value)
+  else if(data.stream && data.req === 1 && data.value === 'control') {
+    //this.hasFlowControl = true
+    var sub = this.subs[-data.req] = new Sub(this, -data.req)
+    sub._write = function (data) {
+      var sub = this.parent.subs[-data.id]
+      //note, sub stream may have ended already, in that case ignore
+      if(sub) {
+        sub.credit = data.credit
+        if(sub.paused) {
+          if(sub.credit + 10 >= sub.debit) {
+            console.log('credit to continue')
+            sub.paused = false //resume()
+            if(sub.source) sub.source.resume()
+          }
+        }
+      }
     }
-    else
-      console.error('ignore:', data)
-    //else, we received a reply to a stream we didn't make,
-    //which should never happen!
+  }
+  else if(data.stream) {
+    if(data.req === 1 && this.hasFlowControl) {
+    }
+    else {
+
+      var sub = this.subs[-data.req] //TODO: handle +/- subs
+      if(sub) writeDataToStream(data, sub)
+      //we received a new stream!
+      else if (data.req > 0 && this.options.onStream) {
+        var sub = this.subs[-data.req] = new Sub(this, -data.req)
+        this.options.onStream(sub, data.value)
+      }
+      else
+        console.error('ignore:', data)
+      //else, we received a reply to a stream we didn't make,
+      //which should never happen!
+    }
   }
 }
 
@@ -119,6 +145,17 @@ Mux.prototype.resume = function () {
     if(this.sink.paused) return
     var sub = this.subs[i]
     if(sub.paused) sub.resume()
+  }
+}
+
+Mux.prototype._credit = function (id) {
+  var sub = this.subs[id]
+  if(sub && (this.control[id]|0) + 5 <= (sub.credit)) {
+    this.control[id] = sub.credit
+    //skip actually writing this through 
+    //inject credit directly into the main stream
+    //(because the control stream doesn't need back pressure)
+    this._write({req: this.control.id, stream: true, value: {id: id, credit: sub.credit}, end: false})
   }
 }
 

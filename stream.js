@@ -23,8 +23,11 @@ DuplexStream.prototype.end = function (err) {
   throw new Error('subclasses should overwrite Stream.end')
 }
 
+DuplexStream.prototype._preread = function () {}
+
 DuplexStream.prototype._write = function (data) {
   if(this.sink && !this.sink.paused) {
+    this._preread(data)
     this.sink.write(data)
     //for duplex streams, should it pause like this?
     //i'm thinking no, because input does not necessarily
@@ -53,18 +56,19 @@ DuplexStream.prototype._end = function (end) {
 }
 
 DuplexStream.prototype.resume = function () {
-  if(!(/*this.paused || */this.buffer.length)) return
-//  this.paused = false
+  if(!(this.buffer.length) && !this.ended || !this.sink) return
   if(isError(this.ended))
     return this.sink.end(this.ended)
 
-  while(this.buffer.length && !this.sink.paused)
-    this.sink.write(this.buffer.shift())
+  while(this.buffer.length && !this.sink.paused) {
+    var data = this.buffer.shift()
+    this._preread(data)
+    this.sink.write(data)
+  }
 
   if(this.ended && this.buffer.length == 0 && !this.sink.paused)
     this.sink.end(this.ended)
 }
 
 DuplexStream.prototype.pipe = require('push-stream/pipe')
-
 
