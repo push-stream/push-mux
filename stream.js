@@ -6,7 +6,7 @@ function isError (end) {
 module.exports = DuplexStream
 
 function DuplexStream () {
-  this.paused = true
+  this.paused = false
   this.buffer = []
 }
 
