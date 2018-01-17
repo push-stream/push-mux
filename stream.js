@@ -48,7 +48,7 @@ DuplexStream.prototype._end = function (end) {
     if(isError(end))
       this.sink.end(end)
     //otherwise, respect pause
-    else if(!this.sink.paused) {
+    else if(this.buffer.length === 0) {
       this.sink.end(end)
       this.paused = this.sink.paused
     }
@@ -63,10 +63,12 @@ DuplexStream.prototype.resume = function () {
   while(this.buffer.length && !this.sink.paused) {
     var data = this.buffer.shift()
     this._preread(data)
-    this.sink.write(data)
+    //check if it's paused again, uncase a credit allocation in _preread
+    //has changed the pause state.
+    if(!this.sink.paused) this.sink.write(data)
   }
 
-  if(this.ended && this.buffer.length == 0 && !this.sink.paused)
+  if(this.ended && this.buffer.length == 0)
     this.sink.end(this.ended)
 }
 
