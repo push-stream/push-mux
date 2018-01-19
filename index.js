@@ -6,6 +6,15 @@ function isError (end) {
   return end && end !== true
 }
 
+//default codec is just nothing
+
+function id (v) {
+  return v
+}
+var codec = {
+  encode: id, decode: id, type: 'id'
+}
+
 module.exports = Mux
 
 inherits(Mux, DuplexStream)
@@ -15,11 +24,15 @@ function Mux (opts) {
   this.subs = {}
   this.nextId = 0
   this.options = opts || {}
+  this._codec = this.options.codec || codec
   DuplexStream.call(this)
   this.paused = false
 
+  this.options.credit = this.options.credit || 16
+
   //TODO: ensure this is something that current muxrpc would ignore
-  this.control = this.stream('control')
+  this.control = {}
+  this.controlStream = this.stream('control')
   //this.hasFlowControl = false
   //this._write({req: 1, stream: true, value: 'control', end: false})
 }
@@ -28,14 +41,14 @@ Mux.prototype.stream = function (opts) {
   var id = ++this.nextId
   var sub = new Sub(this, id)
   this.subs[id] = sub
-  this._write({req: id, value: opts, stream: true, end: false})
+  this._write(this._codec.encode({req: id, value: opts, stream: true, end: false}))
   return sub
 }
 
 Mux.prototype.request = function (opts, cb) {
   var id = ++this.nextId
   this.cbs[id] = cb
-  this._write({req: id, value: opts, stream: false})
+  this._write(this._codec.encode({req: id, value: opts, stream: false}))
   return id
 }
 
@@ -44,8 +57,13 @@ Mux.prototype.message = function (value) {
 }
 
 function writeDataToStream(data, sub) {
-  if(data.end === true) sub._end(data.value)
-  else         sub._write(data.value)
+  if(data.end) {
+    if(sub.ended) //if it's already ended we can clear this out.
+      delete sub.parent.subs[subs.id]
+    sub._end(data.value)
+  }
+  else
+    sub._write(data.value)
 }
 
 Mux.prototype._createCb = function (id) {
@@ -60,6 +78,9 @@ Mux.prototype._createCb = function (id) {
 }
 
 Mux.prototype.write = function (data) {
+  var length = data.length || 1
+  data = this._codec.decode(data)
+  data.length = length
   if(data.req == 0)
     this.options.onMessage && this.options.onMessage(data)
   else if(!data.stream) {
@@ -75,15 +96,18 @@ Mux.prototype.write = function (data) {
     //this.hasFlowControl = true
     var sub = this.subs[-data.req] = new Sub(this, -data.req)
     sub._write = function (data) {
-      var sub = this.parent.subs[-data.id]
-      //note, sub stream may have ended already, in that case ignore
-      if(sub) {
-        sub.credit = data.credit
-        if(sub.paused) {
-          if(sub.credit + 10 >= sub.debit) {
-            console.log('credit to continue')
-            sub.paused = false //resume()
-            if(sub.source) sub.source.resume()
+      if(Array.isArray(data)) {
+        for(var i = 0; i < data.length; i+=2) {
+          var sub = this.parent.subs[-data[i]]
+          //note, sub stream may have ended already, in that case ignore
+          if(sub) {
+            sub.credit = data[i+1]
+            if(sub.paused) {
+              if(sub.credit + this.parent.options.credit >= sub.debit) {
+                sub.paused = false //resume()
+                if(sub.source) sub.source.resume()
+              }
+            }
           }
         }
       }
@@ -93,7 +117,6 @@ Mux.prototype.write = function (data) {
     if(data.req === 1 && this.hasFlowControl) {
     }
     else {
-
       var sub = this.subs[-data.req] //TODO: handle +/- subs
       if(sub) writeDataToStream(data, sub)
       //we received a new stream!
@@ -102,7 +125,7 @@ Mux.prototype.write = function (data) {
         this.options.onStream(sub, data.value)
       }
       else
-        console.error('ignore:', data)
+        console.error('ignore:', this.name, data, this.subs)
       //else, we received a reply to a stream we didn't make,
       //which should never happen!
     }
@@ -110,7 +133,7 @@ Mux.prototype.write = function (data) {
 }
 
 Mux.prototype.end = function (err) {
-  var _err = err || new Error('parent stream closed') 
+  var _err = err || new Error('parent stream closed')
   for(var i in this.cbs) {
     var cb = this.cbs[i]
     delete this.cbs[i]
@@ -137,7 +160,6 @@ Mux.prototype.resume = function () {
 
     if(this.ended && this.buffer.length == 0 && !this.sink.paused)
       return this.sink.end(this.ended)
-
   }
   //in ./stream it called source.resume() here,
   //but this is not a transform stream.
@@ -150,12 +172,12 @@ Mux.prototype.resume = function () {
 
 Mux.prototype._credit = function (id) {
   var sub = this.subs[id]
-  if(sub && (this.control[id]|0) + 5 <= (sub.credit)) {
+  if(sub && (this.control[id]|0) + this.options.credit/2 <= (sub.credit)) {
     this.control[id] = sub.credit
     //skip actually writing this through 
     //inject credit directly into the main stream
     //(because the control stream doesn't need back pressure)
-    this._write({req: this.control.id, stream: true, value: {id: id, credit: sub.credit}, end: false})
+    this._write(this._codec.encode({req: this.controlStream.id, stream: true, value: [id, sub.credit], end: false}))
   }
 }
 

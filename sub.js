@@ -20,32 +20,29 @@ function Sub (parent, id) {
 }
 
 Sub.prototype.write = function (data) {
-  this.debit ++
-  console.log('debit', this.credit, this.debit, data, this.name)
-  this.parent._write({
+  data = this.parent._codec.encode({
     req: this.id, value: data, stream: true, end: false
   })
-//  if(this.debit > this.credit + 10)
+  this.debit += (data.length || 1)
+  this.parent._write(data)
   this.paused = !this.parent.sink || this.parent.sink.paused
-  //|| this.debit > this.credit + 10
-  if(!this.paused && this.debit > this.credit + 10) {
+  if(!this.paused && this.debit > this.credit + this.parent.options.credit)
     this.paused = true
-    console.log('out of credit', this.id, this.debit, this.credit + 10)
-  }
-
 }
 
 Sub.prototype.end = function (err) {
-  this.parent._write({req: this.id, value: err, stream: true, end: true})
-  delete this.parent.subs[this.id]
+  this.parent._write(this.parent._codec.encode({req: this.id, value: err, stream: true, end: true}))
+
+  if(this.ended)
+    delete this.parent.subs[this.id]
+
   //if we errored this stream, kill it immediately.
   if(isError(this.ended)) this._end(err)
   //else, if it was and end. wait for the remote to confirm with their error.
 }
 
 Sub.prototype._preread = function (data) {
-  console.log('credit', this.credit, this.debit, data, this.name || this.id)
-  this.credit ++
-  this.parent._credit(this.id, this.credit)
+  this.credit += data.length || 1
+  this.parent._credit(this.id)
 }
 
