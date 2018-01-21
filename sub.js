@@ -17,16 +17,20 @@ function Sub (parent, id) {
   this.paused = false
   this.credit = 0
   this.debit = 0
+  this.writes = this.reads = 0
 }
 
 Sub.prototype.write = function (data) {
   data = this.parent._codec.encode({
     req: this.id, value: data, stream: true, end: false
   })
-  this.debit += (data.length || 1)
+  this.writes += (data.length || 1)
   this.parent._write(data)
   this.paused = !this.parent.sink || this.parent.sink.paused
-  if(!this.paused && this.debit > this.credit + this.parent.options.credit)
+  if(
+    !this.paused &&
+    this.writes >= this.credit + (this.parent.options.credit/2)
+  )
     this.paused = true
 }
 
@@ -42,7 +46,7 @@ Sub.prototype.end = function (err) {
 }
 
 Sub.prototype._preread = function (data) {
-  this.credit += data.length || 1
+  this.reads += data.length || 1
   this.parent._credit(this.id)
 }
 

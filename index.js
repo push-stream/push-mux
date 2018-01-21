@@ -28,7 +28,7 @@ function Mux (opts) {
   DuplexStream.call(this)
   this.paused = false
 
-  this.options.credit = this.options.credit || 16
+  this.options.credit = this.options.credit
 
   //TODO: ensure this is something that current muxrpc would ignore
   this.control = {}
@@ -94,18 +94,27 @@ Mux.prototype.write = function (data) {
   }
   else if(data.stream && data.req === 1 && data.value === 'control') {
     //this.hasFlowControl = true
-    var sub = this.subs[-data.req] = new Sub(this, -data.req)
-    sub._write = function (data) {
-      if(Array.isArray(data)) {
-        for(var i = 0; i < data.length; i+=2) {
-          var sub = this.parent.subs[-data[i]]
-          //note, sub stream may have ended already, in that case ignore
-          if(sub) {
-            sub.credit = data[i+1]
-            if(sub.paused) {
-              if(sub.credit + this.parent.options.credit >= sub.debit) {
-                sub.paused = false //resume()
-                if(sub.source) sub.source.resume()
+    if(false && !this.options.credit) {
+      this._write(this._codec.encode({
+        req: -1, stream: true, end: true, value: {
+          error: true, message: 'flow-control not supported'
+        }
+      }))
+    }
+    else {
+      var sub = this.subs[-data.req] = new Sub(this, -data.req)
+      sub._write = function (data) {
+        if(Array.isArray(data)) {
+          for(var i = 0; i < data.length; i+=2) {
+            var sub = this.parent.subs[-data[i]]
+            //note, sub stream may have ended already, in that case ignore
+            if(sub) {
+              sub.credit = data[i+1]
+              if(sub.paused) {
+                if(sub.credit + this.parent.options.credit >= sub.writes) {
+                  sub.paused = false //resume()
+                  if(sub.source) sub.source.resume()
+                }
               }
             }
           }
@@ -161,8 +170,6 @@ Mux.prototype.resume = function () {
     if(this.ended && this.buffer.length == 0 && !this.sink.paused)
       return this.sink.end(this.ended)
   }
-  //in ./stream it called source.resume() here,
-  //but this is not a transform stream.
   for(var i in this.subs) {
     if(this.sink.paused) return
     var sub = this.subs[i]
@@ -172,12 +179,15 @@ Mux.prototype.resume = function () {
 
 Mux.prototype._credit = function (id) {
   var sub = this.subs[id]
-  if(sub && (this.control[id]|0) + this.options.credit/2 <= (sub.credit)) {
-    this.control[id] = sub.credit
-    //skip actually writing this through 
+  if(sub && (this.control[id]|0) + (this.options.credit/2) <= (sub.reads)) {
+    var credit = this.control[id] = sub.reads + this.options.credit
+    //skip actually writing this through
     //inject credit directly into the main stream
     //(because the control stream doesn't need back pressure)
-    this._write(this._codec.encode({req: this.controlStream.id, stream: true, value: [id, sub.credit], end: false}))
+    this._write(this._codec.encode({
+      req: this.controlStream.id, stream: true, end: false,
+      value: [id, credit]
+    }))
   }
 }
 

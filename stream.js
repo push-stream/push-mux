@@ -7,6 +7,7 @@ module.exports = DuplexStream
 
 function DuplexStream () {
   this.paused = false
+  this.ended = false
   this.buffer = []
 }
 
@@ -26,7 +27,7 @@ DuplexStream.prototype.end = function (err) {
 DuplexStream.prototype._preread = function () {}
 
 DuplexStream.prototype._write = function (data) {
-  if(this.sink && !this.sink.paused) {
+  if(this.sink && !this.sink.paused && !this.buffer.length) {
     this._preread(data)
     this.sink.write(data)
     //for duplex streams, should it pause like this?
@@ -48,28 +49,27 @@ DuplexStream.prototype._end = function (end) {
     if(isError(end))
       this.sink.end(end)
     //otherwise, respect pause
-    else if(this.buffer.length === 0) {
+    else if(this.buffer.length === 0)
       this.sink.end(end)
-      this.paused = this.sink.paused
-    }
   }
 }
 
 DuplexStream.prototype.resume = function () {
-  if(!(this.buffer.length) && !this.ended || !this.sink) return
   if(isError(this.ended))
     return this.sink.end(this.ended)
+  if(!this.buffer.length || !this.sink || this.sink.paused) return
 
+  var ended = !!this.ended
   while(this.buffer.length && !this.sink.paused) {
     var data = this.buffer.shift()
-    this._preread(data)
-    //check if it's paused again, uncase a credit allocation in _preread
-    //has changed the pause state.
-    if(!this.sink.paused) this.sink.write(data)
+    this.reads += data.length || 1
+    this.sink.write(data)
   }
 
   if(this.ended && this.buffer.length == 0)
     this.sink.end(this.ended)
+  else
+    this.parent._credit(this.id)
 }
 
 DuplexStream.prototype.pipe = require('push-stream/pipe')
