@@ -202,3 +202,42 @@ test('test credit signals on echo server', function (t) {
 
 })
 
+test('credit signals on peer that does not support flow control', function (t) {
+
+  var a = new Mux({credit: 10})
+
+//  var pauser = Pauser(5, function (){})
+  var taker = Taker()
+
+  a.pipe(taker) //.pipe(a)
+
+  var as = a.stream()
+
+  //before A knows wether it's remote supports flow control,
+  //it assumes that it does.
+  for(var i = 0; i < 5;i++) {
+    t.equal(a.paused, false)
+    as.write('a'+i)
+  }
+  t.equal(as.paused, true)
+
+  a.write({
+    req: -1, stream: true, end: true, value: {}
+  })
+
+  t.equal(as.credit, -1)
+
+  t.equal(as.paused, false)
+
+  for(var i = 0; i < 100; i++) {
+    t.equal(as.paused, false)
+    as.write('b'+i)
+  }
+
+  taker.paused = true
+  //console.log(a)
+  as.write('c')
+  t.equal(as.paused, true)
+  t.end()
+})
+
