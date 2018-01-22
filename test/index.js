@@ -37,9 +37,7 @@ test('read source stream', function (t) {
   var a = new Mux()
   var b = new Mux({
     onStream: function (stream, opts) {
-      console.log(stream)
       new Values([1,2,3]).pipe(stream)
-
     }
   })
 
@@ -97,4 +95,6 @@ test('echo duplex stream', function (t) {
       })
     )
 })
+
+
 
