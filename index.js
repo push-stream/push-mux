@@ -20,6 +20,7 @@ module.exports = Mux
 inherits(Mux, DuplexStream)
 
 function Mux (opts) {
+  if(!(this instanceof Mux)) return new Mux(opts)
   this.cbs = {}
   this.subs = {}
   this.nextId = 0
