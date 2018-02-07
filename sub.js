@@ -28,7 +28,7 @@ Sub.prototype.write = function (data) {
   this.parent._write(data)
   this.paused = !this.parent.sink || this.parent.sink.paused
   if(
-    !this.paused &&
+    !this.paused && ~this.credit &&
     this.writes >= this.credit + (this.parent.options.credit/2)
   )
     this.paused = true

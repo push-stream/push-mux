@@ -92,28 +92,30 @@ Mux.prototype.write = function (data) {
       cb(data.end ? data.value : null, data.end ? null : data.value)
     }
   }
-  else if(data.stream && data.req === 1 && data.value === 'control') {
-    //this.hasFlowControl = true
-    if(false && !this.options.credit) {
-      this._write(this._codec.encode({
-        req: -1, stream: true, end: true, value: {
-          error: true, message: 'flow-control not supported'
-        }
-      }))
-    }
-    else {
-      var sub = this.subs[-data.req] = new Sub(this, -data.req)
-      sub._write = function (data) {
-        if(Array.isArray(data)) {
-          for(var i = 0; i < data.length; i+=2) {
-            var sub = this.parent.subs[-data[i]]
-            //note, sub stream may have ended already, in that case ignore
-            if(sub) {
-              sub.credit = data[i+1]
-              if(sub.paused) {
-                if(sub.credit + this.parent.options.credit >= sub.writes) {
-                  sub.paused = false //resume()
-                  if(sub.source) sub.source.resume()
+  else if(data.stream) {
+    if(data.req === 1 && data.value === 'control') {
+      //this.hasFlowControl = true
+      if(!this.options.credit) {
+        this._write(this._codec.encode({
+          req: -1, stream: true, end: true, value: {
+            error: true, message: 'flow-control not supported'
+          }
+        }))
+      }
+      else {
+        var sub = this.subs[-data.req] = new Sub(this, -data.req)
+        sub._write = function (data) {
+          if(Array.isArray(data)) {
+            for(var i = 0; i < data.length; i+=2) {
+              var sub = this.parent.subs[-data[i]]
+              //note, sub stream may have ended already, in that case ignore
+              if(sub) {
+                sub.credit = data[i+1]
+                if(sub.paused) {
+                  if(sub.credit + this.parent.options.credit >= sub.writes) {
+                    sub.paused = false //resume()
+                    if(sub.source) sub.source.resume()
+                  }
                 }
               }
             }
@@ -121,9 +123,15 @@ Mux.prototype.write = function (data) {
         }
       }
     }
-  }
-  else if(data.stream) {
-    if(data.req === 1 && this.hasFlowControl) {
+    else if(data.req === -1 && data.end) {
+      for(var i in this.subs) {
+        var sub = this.subs[i]
+        sub.credit = -1
+        if(sub.paused) {
+          sub.paused = false
+          if(sub.source) sub.source.resume()
+        }
+      }
     }
     else {
       var sub = this.subs[-data.req] //TODO: handle +/- subs
@@ -190,4 +198,5 @@ Mux.prototype._credit = function (id) {
     }))
   }
 }
+
 
