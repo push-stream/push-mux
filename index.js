@@ -57,6 +57,9 @@ Mux.prototype.stream = function (opts) {
 }
 
 Mux.prototype.request = function (opts, cb) {
+  if(this.ended)
+    return cb(new Error('push-mux stream has ended'))
+
   var id = ++this.nextId
   if(!isFunction(cb)) throw new Error('push-mux: request must be provided cb')
   this.cbs[id] = cb
@@ -175,6 +178,7 @@ Mux.prototype.end = function (err) {
   }
   //end the next piped to stream with the written error
   this._end(err)
+  if(this.options.onClose) this.options.onClose(err)
 }
 
 Mux.prototype.resume = function () {
@@ -212,6 +216,7 @@ Mux.prototype._credit = function (id) {
 }
 
 Mux.prototype.abort = function (err) {
+  if(this.ended) return
   this.ended = err || true
   if(this.source)
     this.source.abort(err)
