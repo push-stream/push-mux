@@ -29,8 +29,11 @@ module.exports = Mux
 
 inherits(Mux, DuplexStream)
 
+var i = 0
+
 function Mux (opts) {
   if(!(this instanceof Mux)) return new Mux(opts)
+  this.id = ++i
   this.cbs = {}
   this.subs = {}
   this.nextId = 0
@@ -43,9 +46,8 @@ function Mux (opts) {
 
   //TODO: ensure this is something that current muxrpc would ignore
   this.control = {}
-  this.controlStream = this.stream('control')
-  //this.hasFlowControl = false
-  //this._write({req: 1, stream: true, value: 'control', end: false})
+  if(this.options.credit)
+    this.controlStream = this.stream('control')
 }
 
 Mux.prototype.stream = function (opts) {
@@ -138,7 +140,9 @@ Mux.prototype.write = function (data) {
         }
       }
     }
-    else if(data.req === -1 && data.end) {
+    //if we are running credit-based-control-flow, but the other
+    //end isn't then disable it from here on.
+    else if(data.req === -1 && data.end && this.controlStream) {
       for(var i in this.subs) {
         var sub = this.subs[i]
         sub.credit = -1
@@ -157,7 +161,7 @@ Mux.prototype.write = function (data) {
         this.options.onStream(sub, data.value)
       }
       else
-        console.error('ignore:', this.name, data, this.subs)
+        console.error('ignore:', data)
       //else, we received a reply to a stream we didn't make,
       //which should never happen!
     }
