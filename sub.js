@@ -5,6 +5,10 @@ function isError (end) {
   return end && end !== true
 }
 
+function flatten (err) {
+  return err === true ? true : { error: true, message: err.message }
+}
+
 module.exports = Sub
 
 inherits(Sub, DuplexStream)
@@ -35,7 +39,7 @@ Sub.prototype.write = function (data) {
 }
 
 Sub.prototype.end = function (err) {
-  this.parent._write(this.parent._codec.encode({req: this.id, value: err, stream: true, end: true}))
+  this.parent._write(this.parent._codec.encode({req: this.id, value: flatten(err), stream: true, end: true}))
 
   if(this.ended)
     delete this.parent.subs[this.id]
@@ -52,6 +56,12 @@ Sub.prototype._preread = function (data) {
 Sub.prototype.abort = function (err) {
   if(this.source) this.source.abort(err)
 
-  if(!this.ended) this.end(this.ended = err)
+  if(!this.ended) {
+    this.end(this.ended = err)
+  }
+  else
+    this._end(this.ended)
 }
+
+
 

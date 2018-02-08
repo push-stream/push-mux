@@ -12,7 +12,7 @@ function isFunction (f) {
 
 function flatten (err) {
   return {
-    error: true, message: err.message, stack: err.stack
+    error: true, message: err.message
   }
 }
 
