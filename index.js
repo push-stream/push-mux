@@ -90,7 +90,6 @@ Mux.prototype._createCb = function (id) {
 }
 
 Mux.prototype.write = function (data) {
-  console.log('write', data)
   var length = data.length || 1
   data = this._codec.decode(data)
   data.length = length
@@ -101,7 +100,7 @@ Mux.prototype.write = function (data) {
       this.options.onRequest(data.value, this._createCb(data.req))
     else if(data.req < 0 && this.cbs[-data.req]) {
       var cb = this.cbs[-data.req]
-      this.cbs[-data.req] = null
+      delete this.cbs[-data.req]
       cb(data.end ? data.value : null, data.end ? null : data.value)
     }
   }
