@@ -6,6 +6,10 @@ function isError (end) {
   return end && end !== true
 }
 
+function isFunction (f) {
+  return 'function' == typeof f
+}
+
 function flatten (err) {
   return {
     error: true, message: err.message, stack: err.stack
@@ -54,6 +58,7 @@ Mux.prototype.stream = function (opts) {
 
 Mux.prototype.request = function (opts, cb) {
   var id = ++this.nextId
+  if(!isFunction(cb)) throw new Error('push-mux: request must be provided cb')
   this.cbs[id] = cb
   this._write(this._codec.encode({req: id, value: opts, stream: false}))
   return id

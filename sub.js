@@ -55,6 +55,3 @@ Sub.prototype.abort = function (err) {
   if(!this.ended) this.end(this.ended = err)
 }
 
-
-
-
