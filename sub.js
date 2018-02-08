@@ -39,7 +39,7 @@ Sub.prototype.write = function (data) {
 }
 
 Sub.prototype.end = function (err) {
-  this.parent._write(this.parent._codec.encode({req: this.id, value: flatten(err), stream: true, end: true}))
+  this.parent._write(this.parent._codec.encode({req: this.id, value: flatten(err||true), stream: true, end: true}))
 
   if(this.ended)
     delete this.parent.subs[this.id]
