@@ -96,5 +96,36 @@ test('echo duplex stream', function (t) {
     )
 })
 
+test('abort source', function (t) {
+  var _stream
+  var a = new Mux()
+  var b = new Mux({
+    onStream: function (stream, opts) {
+      _stream = stream
+    }
+  })
+
+  a.pipe(b).pipe(a)
+
+  var err = new Error('aborted')
+
+  var as = a.stream({})
+  as.pipe({
+    end: function (_err) {
+      t.ok(as.ended)
+      t.equal(as.ended.message, err.message)
+      t.equal(_err.message, err.message)
+      t.end()
+    }
+  })
+
+  _stream.abort(err)
+
+
+})
+
+
+
+
 
 
