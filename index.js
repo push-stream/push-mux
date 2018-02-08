@@ -6,6 +6,12 @@ function isError (end) {
   return end && end !== true
 }
 
+function flatten (err) {
+  return {
+    error: true, message: err.message
+  }
+}
+
 //default codec is just nothing
 
 function id (v) {
@@ -198,6 +204,14 @@ Mux.prototype._credit = function (id) {
       value: [id, credit]
     }))
   }
+}
+
+Mux.prototype.abort = function (err) {
+  this.ended = err || true
+  if(this.source)
+    this.source.abort(err)
+  if(this.sink)
+    this.sink.end(err || new Error('aborted'))
 }
 
 
