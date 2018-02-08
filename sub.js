@@ -49,4 +49,12 @@ Sub.prototype._preread = function (data) {
   this.reads += data.length || 1
   this.parent._credit(this.id)
 }
+Sub.prototype.abort = function (err) {
+  if(this.source) this.source.abort(err)
+
+  if(!this.ended) this.end(this.ended = err)
+}
+
+
+
 

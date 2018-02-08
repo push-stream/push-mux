@@ -8,7 +8,7 @@ function isError (end) {
 
 function flatten (err) {
   return {
-    error: true, message: err.message
+    error: true, message: err.message, stack: err.stack
   }
 }
 
@@ -66,7 +66,7 @@ Mux.prototype.message = function (value) {
 function writeDataToStream(data, sub) {
   if(data.end) {
     if(sub.ended) //if it's already ended we can clear this out.
-      delete sub.parent.subs[subs.id]
+      delete sub.parent.subs[sub.id]
     sub._end(data.value)
   }
   else
@@ -85,6 +85,7 @@ Mux.prototype._createCb = function (id) {
 }
 
 Mux.prototype.write = function (data) {
+  console.log('write', data)
   var length = data.length || 1
   data = this._codec.decode(data)
   data.length = length
@@ -210,8 +211,6 @@ Mux.prototype.abort = function (err) {
   this.ended = err || true
   if(this.source)
     this.source.abort(err)
-  if(this.sink)
-    this.sink.end(err || new Error('aborted'))
+  this.end(err)
 }
-
 
