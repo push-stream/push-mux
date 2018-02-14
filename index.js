@@ -143,6 +143,7 @@ Mux.prototype.write = function (data) {
     //if we are running credit-based-control-flow, but the other
     //end isn't then disable it from here on.
     else if(data.req === -1 && data.end && this.controlStream) {
+      this.controlStream = null
       for(var i in this.subs) {
         var sub = this.subs[i]
         sub.credit = -1
@@ -151,6 +152,9 @@ Mux.prototype.write = function (data) {
           if(sub.source) sub.source.resume()
         }
       }
+      this._write(this._codec.encode({
+        req: 1, stream: true, end: true, value: true
+      }))
     }
     else {
       var sub = this.subs[-data.req] //TODO: handle +/- subs
@@ -226,4 +230,5 @@ Mux.prototype.abort = function (err) {
     this.source.abort(err)
   this.end(err)
 }
+
 
