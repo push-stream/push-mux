@@ -19,7 +19,7 @@ function Sub (parent, id) {
   if(!Number.isInteger(id)) throw new Error('id must be integer')
   DuplexStream.call(this)
   this.paused = false
-  this.credit = 0
+  this.credit = parent.controlStream ? 0 : -1
   this.debit = 0
   this.writes = this.reads = 0
 }
@@ -62,6 +62,7 @@ Sub.prototype.abort = function (err) {
   else
     this._end(this.ended)
 }
+
 
 
 
