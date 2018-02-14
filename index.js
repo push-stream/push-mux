@@ -164,10 +164,7 @@ Mux.prototype.write = function (data) {
         var sub = this.subs[-data.req] = new Sub(this, -data.req)
         this.options.onStream(sub, data.value)
       }
-      else
-        console.error('ignore:', data)
-      //else, we received a reply to a stream we didn't make,
-      //which should never happen!
+      //we received a reply to a stream that we have already ended, just drop it
     }
   }
 }
@@ -230,5 +227,9 @@ Mux.prototype.abort = function (err) {
     this.source.abort(err)
   this.end(err)
 }
+
+
+
+
 
 
