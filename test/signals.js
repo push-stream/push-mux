@@ -238,6 +238,30 @@ test('credit signals on peer that does not support flow control', function (t) {
   //console.log(a)
   as.write('c')
   t.equal(as.paused, true)
+
+  //-1 credit should also apply on newly created streams
+
+  var as2 = a.stream()
+
+  t.equal(as2.credit, -1)
+  t.equal(as2.paused, false)
+
   t.end()
 })
+
+
+test('control stream sends end acknowledgement to peer that does not support cbfc', function (t) {
+  var a = new Mux({credit: 10})
+
+  var taker = Taker()
+
+  a.pipe(taker) //.pipe(a)
+  
+  t.deepEqual(taker.buffer, [{req: 1, stream: true, end: false, value: 'control'}])
+  a.write({req:-1, stream: true, end: true, value: {}})
+  t.deepEqual(taker.buffer[1], {req: 1, stream: true, end: true, value: true})
+  t.end()
+})
+
+
 

@@ -196,6 +196,34 @@ test('test back pressure through echo server', function (t) {
 
 })
 
+test('credit on server, not client', function (t) {
+
+  var a = new Mux({})
+  var b = new Mux({
+    credit: 10,
+    onStream: function (stream, data) {
+      _stream = stream
+      stream.name = 'server'
+    }
+  })
+
+  a.pipe(b).pipe(a)
+
+  var as = a.stream()
+  t.equal(_stream.paused, false)
+  t.equal(_stream.id, -1)
+  t.equal(_stream.credit, -1)
+  for(var i = 0; i < 10; i++) {
+    _stream.write('foo')
+    console.log(_stream.credit)
+  }
+  t.equal(_stream.paused, false)
+  t.end()
+})
+
+
+
+
 
 
 
