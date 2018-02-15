@@ -208,7 +208,7 @@ Mux.prototype.resume = function () {
 
 Mux.prototype._credit = function (id) {
   var sub = this.subs[id]
-  if(sub && (this.control[id]|0) + (this.options.credit/2) <= (sub.reads)) {
+  if(sub && this.controlStream && (this.control[id]|0) + (this.options.credit/2) <= (sub.reads)) {
     var credit = this.control[id] = sub.reads + this.options.credit
     //skip actually writing this through
     //inject credit directly into the main stream
@@ -227,9 +227,4 @@ Mux.prototype.abort = function (err) {
     this.source.abort(err)
   this.end(err)
 }
-
-
-
-
-
 
