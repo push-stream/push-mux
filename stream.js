@@ -28,13 +28,13 @@ DuplexStream.prototype._preread = function () {}
 
 DuplexStream.prototype._write = function (data) {
   if(this.sink && !this.sink.paused && !this.buffer.length) {
-    this._preread(data)
-    this.sink.write(data)
+    this.reads += data.length || 1
+    this.sink.write(this._map(data))
     //for duplex streams, should it pause like this?
     //i'm thinking no, because input does not necessarily
     //translate into output, so output can pause, without causing
     //input to pause.
-
+    if(this.parent) this.parent._credit(this.id)
     // this.paused = this.sink.paused
   }
   else {
@@ -63,14 +63,17 @@ DuplexStream.prototype.resume = function () {
   while(this.buffer.length && !this.sink.paused) {
     var data = this.buffer.shift()
     this.reads += data.length || 1
-    this.sink.write(data)
+    this.sink.write(this._map(data))
   }
 
   if(this.ended && this.buffer.length == 0)
     this.sink.end(this.ended)
-  else
+  else if(this.parent)
     this.parent._credit(this.id)
 }
 
 DuplexStream.prototype.pipe = require('push-stream/pipe')
 
+DuplexStream.prototype._map = function (data) {
+  return data
+}

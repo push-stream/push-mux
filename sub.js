@@ -49,10 +49,10 @@ Sub.prototype.end = function (err) {
   //else, if it was and end. wait for the remote to confirm with their error.
 }
 
-Sub.prototype._preread = function (data) {
-  this.reads += data.length || 1
-  this.parent._credit(this.id)
+Sub.prototype._map = function (data) {
+  return data.value
 }
+
 Sub.prototype.abort = function (err) {
   if(this.source) this.source.abort(err)
 
@@ -62,7 +62,4 @@ Sub.prototype.abort = function (err) {
   else
     this._end(this.ended)
 }
-
-
-
 

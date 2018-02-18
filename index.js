@@ -43,7 +43,6 @@ function Mux (opts) {
   this.paused = false
 
   this.options.credit = this.options.credit
-
   //TODO: ensure this is something that current muxrpc would ignore
   this.control = {}
   if(this.options.credit)
@@ -65,12 +64,12 @@ Mux.prototype.request = function (opts, cb) {
   var id = ++this.nextId
   if(!isFunction(cb)) throw new Error('push-mux: request must be provided cb')
   this.cbs[id] = cb
-  this._write(this._codec.encode({req: id, value: opts, stream: false}))
+  this._write(this._codec.encode({req: id, value: opts, stream: false, end: false}))
   return id
 }
 
 Mux.prototype.message = function (value) {
-  this._write({req: 0, stream: false, end: false, value: value})
+  this._write(this._codec.encode({req: 0, stream: false, end: false, value: value}))
 }
 
 function writeDataToStream(data, sub) {
@@ -80,17 +79,17 @@ function writeDataToStream(data, sub) {
     sub._end(data.value)
   }
   else
-    sub._write(data.value)
+    sub._write(data)
 }
 
 Mux.prototype._createCb = function (id) {
   return this.cbs[-id] = function (err, value) {
-    this._write({
+    this._write(this._codec.encode({
       req: -id,
       stream: false,
       end: !!err,
       value: err ? flatten(err) : value
-    })
+    }))
   }.bind(this)
 }
 
@@ -101,8 +100,9 @@ Mux.prototype.write = function (data) {
   if(data.req == 0)
     this.options.onMessage && this.options.onMessage(data)
   else if(!data.stream) {
-    if(data.req > 0 && this.options.onRequest)
+    if(data.req > 0 && this.options.onRequest) {
       this.options.onRequest(data.value, this._createCb(data.req))
+    }
     else if(data.req < 0 && this.cbs[-data.req]) {
       var cb = this.cbs[-data.req]
       delete this.cbs[-data.req]
@@ -122,6 +122,7 @@ Mux.prototype.write = function (data) {
       else {
         var sub = this.subs[-data.req] = new Sub(this, -data.req)
         sub._write = function (data) {
+          data = data.value
           if(Array.isArray(data)) {
             for(var i = 0; i < data.length; i+=2) {
               var sub = this.parent.subs[-data[i]]
