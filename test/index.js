@@ -124,6 +124,73 @@ test('abort source', function (t) {
 
 })
 
+test('abort source by parent stream abort', function (t) {
+  var _stream
+  var a = new Mux()
+
+  var err = new Error('aborted')
+
+  var as = a.stream({})
+
+  //fake being piped to
+  as.source = {
+    abort: function () {
+      t.end()
+    }
+  }
+
+  a.end(err)
+})
+
+test('abort source by parent stream end', function (t) {
+  var _stream
+  var a = new Mux()
+
+  var err = new Error('aborted')
+
+  var as = a.stream({})
+
+  as.source = {
+    abort: function () {
+      t.end()
+    }
+  }
+
+  a.abort(err)
+})
+
+test('abort received source by parent stream end', function (t) {
+  var a = new Mux({
+    onStream: function (as) {
+      as.source = {
+        abort: function () {
+          t.end()
+        }
+      }
+    }
+  })
+
+  a.write({req: 2, stream: true, end: false, value: {}})
+  a.abort(new Error('aborted'))
+})
+
+test('abort received source by parent stream end', function (t) {
+  var _stream
+  var a = new Mux({
+    onStream: function (as) {
+      as.source = {
+        abort: function () {
+          t.end()
+        }
+      }
+    }
+  })
+
+  a.write({req: 2, stream: true, end: false, value: {}})
+
+  a.end(new Error('aborted'))
+})
+
 
 
 
