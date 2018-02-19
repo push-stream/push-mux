@@ -25,6 +25,7 @@ function Sub (parent, id) {
 }
 
 Sub.prototype.write = function (data) {
+  if(this.parent.ended) throw new Error('write to substream when parent has ended')
   data = this.parent._codec.encode({
     req: this.id, value: data, stream: true, end: false
   })

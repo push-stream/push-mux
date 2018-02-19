@@ -52,6 +52,8 @@ DuplexStream.prototype._end = function (end) {
     else if(this.buffer.length === 0)
       this.sink.end(end)
   }
+  if(isError(end))
+    if(this.source) this.source.abort(end)
 }
 
 DuplexStream.prototype.resume = function () {
