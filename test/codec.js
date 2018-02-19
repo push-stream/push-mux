@@ -49,6 +49,6 @@ module.exports = function (codec) {
 }
 
 module.exports(json)
-module.exports(require('../../packet-stream-codec/codec'))
+module.exports(require('../../packet-stream-codec'))
 
 
