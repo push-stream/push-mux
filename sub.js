@@ -40,6 +40,7 @@ Sub.prototype.write = function (data) {
 }
 
 Sub.prototype.end = function (err) {
+  this.ended = err || true
   this.parent._write(this.parent._codec.encode({req: this.id, value: flatten(err||true), stream: true, end: true}))
 
   if(this.ended)
