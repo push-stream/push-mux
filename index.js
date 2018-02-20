@@ -170,8 +170,8 @@ Mux.prototype.write = function (data) {
   }
 }
 
-Mux.prototype.end = function (err) {
-  var _err = err || new Error('parent stream closed')
+Mux.prototype.abort = Mux.prototype.end = function (err) {
+  var _err = err === true || !err ? new Error('parent stream closed') : err
   for(var i in this.cbs) {
     var cb = this.cbs[i]
     delete this.cbs[i]
@@ -221,11 +221,5 @@ Mux.prototype._credit = function (id) {
   }
 }
 
-Mux.prototype.abort = function (err) {
-  if(this.ended) return
-  this.ended = err || true
-  if(this.source)
-    this.source.abort(err)
-  this.end(err)
-}
+
 
