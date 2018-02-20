@@ -171,7 +171,11 @@ Mux.prototype.write = function (data) {
 }
 
 Mux.prototype.abort = Mux.prototype.end = function (err) {
-  var _err = err === true || !err ? new Error('parent stream closed') : err
+  var _err
+  if(!err || err === true) {
+    _err = new Error('parent stream closed')
+    _err.code = 'PUSH-MUX_CLOSED'
+  }
   for(var i in this.cbs) {
     var cb = this.cbs[i]
     delete this.cbs[i]
@@ -220,6 +224,4 @@ Mux.prototype._credit = function (id) {
     }))
   }
 }
-
-
 
