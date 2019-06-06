@@ -176,6 +176,8 @@ Mux.prototype.abort = Mux.prototype.end = function (err) {
     _err = new Error('parent stream closed')
     _err.code = 'PUSH-MUX_CLOSED'
   }
+  else
+    _err = err
   for(var i in this.cbs) {
     var cb = this.cbs[i]
     delete this.cbs[i]
@@ -224,4 +226,3 @@ Mux.prototype._credit = function (id) {
     }))
   }
 }
-
