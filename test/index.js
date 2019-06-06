@@ -124,7 +124,7 @@ test('abort source', function (t) {
 
 })
 
-test('abort source by parent stream abort', function (t) {
+test('abort source by parent stream end', function (t) {
   var _stream
   var a = new Mux()
 
@@ -142,7 +142,7 @@ test('abort source by parent stream abort', function (t) {
   a.end(err)
 })
 
-test('abort source by parent stream end', function (t) {
+test('abort source by parent stream abort', function (t) {
   var _stream
   var a = new Mux()
 
@@ -190,9 +190,3 @@ test('abort received source by parent stream end', function (t) {
 
   a.end(new Error('aborted'))
 })
-
-
-
-
-
-

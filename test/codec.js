@@ -19,9 +19,9 @@ function Null () {
 
 var test = require('tape')
 
-module.exports = function (codec) {
+module.exports = function (codec, name) {
 
-  test(codec.name +': write encoded data to a stream and check that the output length matches the input', function (t) {
+  test(name +': write encoded data to a stream and check that the output length matches the input', function (t) {
 
     var CREDIT = 5*1024
     var b = Mux({codec: codec, credit: CREDIT, onStream: function (_stream) { stream = _stream }})
@@ -48,7 +48,19 @@ module.exports = function (codec) {
   })
 }
 
-module.exports(json)
-module.exports(require('../../packet-stream-codec'))
-
-
+module.exports(json, 'json')
+//giving push-mux the codec allows it to know the length.
+//hmm... it needs to hold the encoder, so that it can know the length
+//and the decoder (which needs to be a stream) shall pass an object with length property.
+var PSC = require('packet-stream-codec')
+var psc = {
+  name: 'packet-stream-codec',
+  encode: function (msg) {
+    return Buffer.concat(PSC.encodePair(msg))
+  },
+  decode: function (buf) {
+    var msg = PSC.decodeHead(buf.slice(0, 9))
+    return PSC.decodeBody(buf.slice(9), msg)
+  }
+}
+module.exports(psc, 'psc')
