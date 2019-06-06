@@ -12,6 +12,7 @@
     "push-stream": "^10.0.0"
   },
   "devDependencies": {
+    "packet-stream-codec": "^1.1.2",
     "tape": "^4.8.0"
   },
   "scripts": {
